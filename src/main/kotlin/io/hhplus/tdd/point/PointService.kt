@@ -37,12 +37,14 @@ class PointService(
         amount:Long
     ): UserPoint {
 
-        val userPoint = userPointTable.selectById(userId)
-        val updatedUserPoint = userPoint.charge(amount)
-        val persistedUserPoint = userPointTable.insertOrUpdate(
-            userId,
-            updatedUserPoint.point
-        )
+        val persistedUserPoint =  UserPointLocker.withUserPointLock(userId, {
+            val userPoint = userPointTable.selectById(userId)
+            val updatedUserPoint = userPoint.charge(amount)
+            userPointTable.insertOrUpdate(
+                userId,
+                updatedUserPoint.point
+            )
+        })
 
         pointHistoryTable.insert(
             userId,
@@ -51,7 +53,7 @@ class PointService(
             persistedUserPoint.updateMillis
         )
 
-        return updatedUserPoint;
+        return persistedUserPoint;
     }
 
     /**
@@ -62,9 +64,11 @@ class PointService(
         amount:Long
     ): UserPoint {
 
-        val userPoint = userPointTable.selectById(userId)
-        val updatedUserPoint = userPoint.use(amount)
-        val persistedUserPoint = userPointTable.insertOrUpdate(userId, updatedUserPoint.point)
+        val persistedUserPoint =  UserPointLocker.withUserPointLock(userId, {
+            val userPoint = userPointTable.selectById(userId)
+            val updatedUserPoint = userPoint.use(amount)
+            userPointTable.insertOrUpdate(userId, updatedUserPoint.point)
+        })
 
         pointHistoryTable.insert(
             userId,
